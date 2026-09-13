@@ -1,0 +1,13 @@
+├── data/
+│   └── Tweets.csv
+├── src/
+│   ├── __init__.py
+│   ├── preprocess.py
+│   └── train.py
+├── templates/
+│   └── index.html
+├── app.py
+├── model.joblib
+├── vectorizer.joblib
+├── requirements.txt
+└── my_env/

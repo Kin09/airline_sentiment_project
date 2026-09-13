@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Comparison & Analytics Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border-top: 4px solid #0066ff;
+        }
+        h1, h2, h3 {
+            margin-top: 0;
+            color: #1a252f;
+        }
+        p {
+            color: #555;
+            font-size: 0.95rem;
+        }
+        textarea, select, input[type="file"], input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            margin-top: 8px;
+            margin-bottom: 12px;
+        }
+        textarea {
+            height: 90px;
+            resize: vertical;
+        }
+        .checkbox-group {
+            margin-bottom: 15px;
+        }
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+        }
+        button {
+            margin-top: 12px;
+            background-color: #0066ff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #0052cc;
+        }
+        button:disabled {
+            background-color: #a0aec0;
+            cursor: not-allowed;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .model-box {
+            background: #f8f9fa;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .model-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #2d3748;
+        }
+        .sentiment-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            text-transform: capitalize;
+            margin-bottom: 10px;
+        }
+        .positive { background-color: #d4edda; color: #155724; }
+        .neutral { background-color: #e2e3e5; color: #383d41; }
+        .negative { background-color: #f8d7da; color: #721c24; }
+        .metrics {
+            font-size: 0.85rem;
+            color: #6c757d;
+            border-top: 1px solid #e9ecef;
+            padding-top: 8px;
+            margin-top: 10px;
+        }
+
+        /* Aggregate Stats UI Styles */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .progress-bar-container {
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .progress-bar {
+            height: 100%;
+            transition: width 0.4s ease;
+        }
+
+        @media (max-width: 600px) {
+            .results-grid, .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 1. Real-Time Single Sentiment Analysis -->
+        <div class="card">
+            <h2>Real-Time Sentiment Analysis</h2>
+            <p>Compare performance and latency between classical ML (TF-IDF + Random Forest) and Deep Learning (RoBERTa Transformer).</p>
+            
+            <textarea id="tweet-input" placeholder="Enter customer review or tweet here..."></textarea>
+            <button id="compare-btn" onclick="analyzeTweet()">Compare Predictions</button>
+
+            <div id="comparison-results" class="results-grid" style="display: none;">
+                <!-- TF-IDF Box -->
+                <div class="model-box">
+                    <div class="model-title">TF-IDF + Random Forest</div>
+                    <div id="tfidf-badge" class="sentiment-badge">-</div>
+                    <div id="tfidf-confidence" style="font-size: 0.9rem;"></div>
+                    <div id="tfidf-metrics" class="metrics"></div>
+                </div>
+
+                <!-- RoBERTa Box -->
+                <div class="model-box">
+                    <div class="model-title">RoBERTa Transformer</div>
+                    <div id="roberta-badge" class="sentiment-badge">-</div>
+                    <div id="roberta-confidence" style="font-size: 0.9rem;"></div>
+                    <div id="roberta-metrics" class="metrics"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Batch Processing & Aggregate Analytics -->
+        <div class="card" style="border-top-color: #28a745;">
+            <h2>Batch Processing & Aggregate Analytics</h2>
+            <p>Upload a CSV dataset to run predictions, view high-level summary metrics, and download the annotated file.</p>
+            
+            <form id="batch-form" onsubmit="handleBatchSubmit(event)">
+                <label for="model-select"><strong>Select Pipeline:</strong></label>
+                <select name="model" id="model-select">
+                    <option value="tfidf">TF-IDF + Random Forest (Fast)</option>
+                    <option value="roberta">RoBERTa Transformer (High Accuracy)</option>
+                </select>
+
+                <div class="checkbox-group">
+                    <strong>Cleaning & Pre-processing Filters:</strong><br><br>
+                    <label>
+                        <input type="checkbox" name="drop_empty" value="true" checked>
+                        Remove rows with empty/missing text
+                    </label>
+                    <label>
+                        <input type="checkbox" name="remove_duplicates" value="true">
+                        Remove duplicate text rows
+                    </label>
+                </div>
+
+                <label for="min-length"><strong>Filter Minimum Character Length:</strong></label>
+                <input type="number" id="min-length" name="min_length" value="0" min="0" placeholder="e.g. 5 (0 to disable)">
+
+                <label for="csv-file"><strong>Choose CSV File:</strong></label>
+                <input type="file" id="csv-file" name="file" accept=".csv" required>
+                
+                <button type="submit" id="batch-btn" style="background-color: #28a745;">Run Batch Predictions & Analyze</button>
+            </form>
+
+            <!-- 3. Dynamic Aggregate Results View -->
+            <div id="batch-summary" style="display: none; margin-top: 25px; border-top: 1px solid #e9ecef; padding-top: 20px;">
+                <h3>Batch Analytics Summary</h3>
+                <p><strong>Total Valid Feedback Processed:</strong> <span id="stat-total" style="font-weight: bold;">0</span></p>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div style="color: #155724; font-weight: bold;">Positive</div>
+                        <div id="stat-pos" class="stat-value">0 (0%)</div>
+                        <div class="progress-bar-container">
+                            <div id="bar-pos" class="progress-bar" style="background: #28a745; width: 0%;"></div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div style="color: #383d41; font-weight: bold;">Neutral</div>
+                        <div id="stat-neu" class="stat-value">0 (0%)</div>
+                        <div class="progress-bar-container">
+                            <div id="bar-neu" class="progress-bar" style="background: #6c757d; width: 0%;"></div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div style="color: #721c24; font-weight: bold;">Negative</div>
+                        <div id="stat-neg" class="stat-value">0 (0%)</div>
+                        <div class="progress-bar-container">
+                            <div id="bar-neg" class="progress-bar" style="background: #dc3545; width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="download-btn" style="background-color: #0066ff; margin-top: 20px;">Download Predictions CSV</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Single Tweet Prediction
+        async function analyzeTweet() {
+            const tweet = document.getElementById('tweet-input').value;
+            const resultsDiv = document.getElementById('comparison-results');
+            const btn = document.getElementById('compare-btn');
+
+            if (!tweet.trim()) {
+                alert('Please enter text to analyze.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'Analyzing...';
+
+            try {
+                const response = await fetch('/predict_all', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tweet: tweet })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                resultsDiv.style.display = 'grid';
+                updateModelCard('tfidf', data.results['TF-IDF + Random Forest']);
+                updateModelCard('roberta', data.results['RoBERTa Transformer']);
+
+            } catch (err) {
+                resultsDiv.style.display = 'block';
+                resultsDiv.innerHTML = `<div class="card"><p style="color:red;">Failed to connect to backend service.</p></div>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Compare Predictions';
+            }
+        }
+
+        function updateModelCard(prefix, data) {
+            const badge = document.getElementById(prefix + '-badge');
+            const confDiv = document.getElementById(prefix + '-confidence');
+            const metricsDiv = document.getElementById(prefix + '-metrics');
+
+            if (data.confidence.error) {
+                badge.className = 'sentiment-badge neutral';
+                badge.innerText = 'Error';
+                confDiv.innerText = data.confidence.error;
+                metricsDiv.innerText = '';
+                return;
+            }
+
+            badge.className = 'sentiment-badge ' + data.sentiment;
+            badge.innerText = data.sentiment;
+
+            let confText = '<strong>Confidence:</strong><br>';
+            for (const [cls, score] of Object.entries(data.confidence)) {
+                confText += `${cls}: ${score}%<br>`;
+            }
+            confDiv.innerHTML = confText;
+
+            metricsDiv.innerHTML = `Latency: ${data.metrics.latency_ms} ms | RAM: ${data.metrics.memory_mb} MB`;
+        }
+
+        // Batch Form Handler with Summary Calculation
+        let currentCsvData = null;
+
+        async function handleBatchSubmit(e) {
+            e.preventDefault();
+            const form = document.getElementById('batch-form');
+            const btn = document.getElementById('batch-btn');
+            const summaryDiv = document.getElementById('batch-summary');
+            const formData = new FormData(form);
+
+            btn.disabled = true;
+            btn.innerText = 'Processing Batch Data...';
+
+            try {
+                const response = await fetch('/predict-batch?format=json', {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                currentCsvData = data.csv_data;
+                const m = data.metrics;
+
+                document.getElementById('stat-total').innerText = m.total;
+                
+                document.getElementById('stat-pos').innerText = `${m.positive.count} (${m.positive.pct}%)`;
+                document.getElementById('bar-pos').style.width = `${m.positive.pct}%`;
+
+                document.getElementById('stat-neu').innerText = `${m.neutral.count} (${m.neutral.pct}%)`;
+                document.getElementById('bar-neu').style.width = `${m.neutral.pct}%`;
+
+                document.getElementById('stat-neg').innerText = `${m.negative.count} (${m.negative.pct}%)`;
+                document.getElementById('bar-neg').style.width = `${m.negative.pct}%`;
+
+                summaryDiv.style.display = 'block';
+
+            } catch (err) {
+                alert('Error processing batch CSV file.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Run Batch Predictions & Analyze';
+            }
+        }
+
+        document.getElementById('download-btn').addEventListener('click', () => {
+            if (!currentCsvData) return;
+            const blob = new Blob([currentCsvData], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'sentiment_predictions.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+    </script>
+</body>
+</html>
